@@ -1,8 +1,14 @@
 package study.datajpa.repository;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -24,6 +30,8 @@ class MemberRepositoryTest {
     MemberRepository memberRepository;
     @Autowired
     TeamRepository teamRepository;
+    @PersistenceContext
+    EntityManager em;
 
     @Test
     public void testMember() {
@@ -141,5 +149,65 @@ class MemberRepositoryTest {
         assertThat(aaa.get(0)).isEqualTo(member1);
         assertThat(aaa1).isEqualTo(member1);
         assertThat(aaa2.get()).isEqualTo(member1);
+    }
+
+    @Test
+    void paging(){
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        /////////////////////////
+        // return type : Page<T>
+        Page<Member> page = memberRepository.findByAge(age, pageRequest);
+        List<Member> content = page.getContent();
+        long totalElements = page.getTotalElements();
+
+        assertThat(content.size()).isEqualTo(3);
+        assertThat(totalElements).isEqualTo(5);
+        assertThat(page.getNumber()).isEqualTo(0);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        assertThat(page.isFirst()).isTrue();
+        assertThat(page.hasNext()).isTrue();
+
+        /////////////////////////
+        // return type : Slice<T>
+
+        Slice<Member> slice = memberRepository.findByAge(pageRequest, age);
+        List<Member> content2 = slice.getContent();
+
+        assertThat(content2.size()).isEqualTo(3);
+        assertThat(slice.getNumber()).isEqualTo(0);
+        assertThat(slice.isFirst()).isTrue();
+        assertThat(slice.hasNext()).isTrue();
+
+        // entity to dto (외부에서는 엔티티를 노출시키면 안됨. 따라서 dto 로 변환시켜야 하는데 이를 간단히 처리해줌)
+        Page<MemberDto> toMap = page.map(member -> new MemberDto(member.getId(), member.getUsername(), null));
+    }
+
+    @Test
+    void bulkUpdate(){
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+
+        int resultCount = memberRepository.bulkAgePlus(20);
+
+        // replace annotation attribute -> @Modifying(clearAutomatically = true)
+//        em.flush();
+//        em.clear();
+
+        List<Member> result = memberRepository.findListByUsername("member5");
+        Member member = result.get(0);
+
+        assertThat(member.getAge()).isEqualTo(41);
+        assertThat(resultCount).isEqualTo(3);
     }
 }
