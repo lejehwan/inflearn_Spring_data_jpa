@@ -236,7 +236,7 @@ class MemberRepositoryTest {
             System.out.println("member.team = " + member.getTeam().getName());// lazy
         }
     }
-
+    //test
     @Test
     void queryHint(){
         Member member1 = new Member("member1", 10);
